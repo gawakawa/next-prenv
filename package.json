@@ -3,12 +3,26 @@
 	"license": "ISC",
 	"type": "module",
 	"scripts": {
+		"dev": "next dev",
+		"build": "next build",
+		"start": "next start",
 		"lint": "oxlint",
 		"test": "vitest run"
 	},
+	"dependencies": {
+		"next": "16.3.1",
+		"react": "19.2.8",
+		"react-dom": "19.2.8"
+	},
 	"devDependencies": {
+		"@tailwindcss/postcss": "^4.3.3",
+		"@types/node": "^20.19.43",
+		"@types/react": "^19.2.18",
+		"@types/react-dom": "^19.2.4",
 		"oxlint": "^1.32.0",
 		"oxlint-tsgolint": "^0.25.0",
+		"tailwindcss": "^4.3.3",
+		"typescript": "^5.9.3",
 		"vitest": "^4.1.10"
 	}
 }

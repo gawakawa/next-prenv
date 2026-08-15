@@ -11,7 +11,7 @@ _: {
         version = "1.0.0";
         inherit src pnpm;
         fetcherVersion = 3;
-        hash = "sha256-4XfzQPSA/FrQ37es8xprD+c1zdxPECzsxwwt/2rzWAo=";
+        hash = "sha256-8aN3s64FoAA2tuYbniFIUNODwtYiy9TkrGaqZheQEh0=";
       };
 
       nodeModules = pkgs.stdenvNoCC.mkDerivation {
@@ -37,14 +37,13 @@ _: {
       # Prebuilt node_modules; consumers symlink this instead of installing.
       packages.nodeModules = nodeModules;
 
-      # `source`-able snippet: writable node_modules, entries symlinked from
-      # the store above (no re-download). Needed over a plain `ln -sfn`
-      # whenever a consumer also writes new entries under node_modules
-      # (e.g. a tool's own cache directory).
+      # `source`-able snippet: writable node_modules, copied from the store
+      # above (no re-download; copy, not symlink, so every package resolves
+      # to a real path inside the project. Turbopack refuses to compile
+      # anything whose resolved path escapes its workspace root, and a
+      # top-level `ln -s` into /nix/store fails that check).
       packages.nodeModulesSetup = pkgs.writeShellScript "node-modules-setup" ''
         (
-          shopt -s dotglob nullglob
-
           # node_modules must be a real directory. Clear it first if it's a
           # symlink (dangling, or the old top-level `ln -sfn` style) or a
           # plain file, so `[ ! -d node_modules ]` below reflects reality.
@@ -54,10 +53,8 @@ _: {
 
           if [ ! -d node_modules ]; then
             mkdir node_modules
-            entries=(${nodeModules}/*)
-            if [ ''${#entries[@]} -gt 0 ]; then
-              ln -s -t node_modules -- "''${entries[@]}"
-            fi
+            cp -r ${nodeModules}/. node_modules/
+            chmod -R u+w node_modules
           fi
         )
       '';
