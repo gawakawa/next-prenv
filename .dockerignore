@@ -1,0 +1,60 @@
+# Adapted from the official Next.js example:
+# https://github.com/vercel/next.js/tree/canary/examples/with-docker
+
+# Dependencies (installed inside Docker, never copied)
+node_modules/
+
+# Next.js build outputs (always generated during `next build`)
+.next/
+out/
+
+# Tests
+tests/
+*.test.*
+*.spec.*
+
+# Local development and editor files
+.git/
+.gitignore
+.vscode/
+*.swp
+*.swo
+*~
+
+# Environment variables (only commit template files)
+.env
+.env*.local
+
+# Docker configuration files (not needed inside build context)
+Dockerfile*
+.dockerignore
+compose.yaml
+compose.yml
+
+# Documentation
+*.md
+docs/
+
+# CI/CD configuration files
+.github/
+
+# Nix (not needed inside the container; the image doesn't use Nix).
+# .pre-commit-config.yaml is a symlink into /nix/store and breaks `next
+# build`'s file tracing if copied in, since the target doesn't exist here.
+.direnv/
+result
+flake.nix
+flake.lock
+nix/
+.envrc
+.pre-commit-config.yaml
+
+# TypeScript build metadata
+*.tsbuildinfo
+
+# OS-specific junk
+.DS_Store
+
+# Claude Code
+.claude/
+CLAUDE.md
