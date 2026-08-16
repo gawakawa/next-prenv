@@ -30,6 +30,13 @@ loop isn't needed here.
 
 IAP-protected; only `iap_members` identities can access (no `allUsers`).
 
+No organization → no Google-managed OAuth brand, so IAP needs a custom OAuth
+client created manually in Console and applied project-wide with
+`gcloud iap settings set`. `terraform/env/dev` only manages the Secret Manager
+container (`iap-oauth-client-secret`) that holds the client secret; the value
+is added out-of-band (`gcloud secrets versions add`) and never passes through
+Terraform.
+
 `terraform/env/dev` holds the persistent config, applied once manually (WIF,
 deploy SA, tfstate bucket, AR, IAP bindings). `terraform/env/preview` holds the
 temporary per-PR config, applied by CI with tfstate prefix `pr/<N>`. Kept

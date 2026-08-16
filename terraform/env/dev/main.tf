@@ -9,6 +9,7 @@ locals {
     "run.googleapis.com",
     "artifactregistry.googleapis.com",
     "iap.googleapis.com",
+    "secretmanager.googleapis.com",
   ]
 }
 
@@ -183,4 +184,20 @@ resource "google_project_iam_member" "iap_run_invoker" {
   project = var.project_id
   role    = "roles/run.invoker"
   member  = google_project_service_identity.iap.member
+}
+
+# Holds the custom IAP OAuth client secret. Only the container is managed
+# here — the value is added out-of-band (`gcloud secrets versions add`),
+# since it comes from a manually-created OAuth client (this project has no
+# organization, so `google_iap_brand`/`google_iap_client` aren't usable) and
+# should never pass through a Terraform variable or land in state.
+resource "google_secret_manager_secret" "iap_oauth_client_secret" {
+  secret_id = "iap-oauth-client-secret"
+  project   = var.project_id
+
+  replication {
+    auto {}
+  }
+
+  depends_on = [google_project_service.core]
 }
