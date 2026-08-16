@@ -6,7 +6,9 @@ Per-PR preview environments for a Next.js app.
 
 ## Features
 
-- Preview environment per pull request
+- Ephemeral preview environment per pull request
+- IAP-protected access
+- Lightweight DB sidecar, rebuilt fresh on every start
 
 ## Prerequisites
 
