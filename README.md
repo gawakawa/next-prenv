@@ -16,5 +16,6 @@ Per-PR preview environments for a Next.js app.
 
 ```
 .
-└── app/   Next.js App Router
+├── prisma/    Database schema and migrations
+└── src/app/   Next.js App Router
 ```
