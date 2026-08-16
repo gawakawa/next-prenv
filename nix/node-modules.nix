@@ -6,12 +6,19 @@ _: {
       nodejs = config.nodejsPackage;
       src = ./..;
 
+      # Prisma's CLI refuses to auto-download its own engine binaries on
+      # NixOS (it looks for a "linux-nixos" build that Prisma doesn't
+      # publish), so `prisma generate` needs these pointed at nixpkgs'
+      # prebuilt engines instead. Version must match the `prisma`/
+      # `@prisma/client` version pinned in package.json.
+      prismaEngines = pkgs.prisma-engines_6;
+
       pnpmDeps = pkgs.fetchPnpmDeps {
         pname = "pnpm-project-deps";
         version = "1.0.0";
         inherit src pnpm;
         fetcherVersion = 3;
-        hash = "sha256-8aN3s64FoAA2tuYbniFIUNODwtYiy9TkrGaqZheQEh0=";
+        hash = "sha256-LsPs7Sd+oxFWDDj30gmp6+5Q5bL8Vu5ND95vY4nPD5c=";
       };
 
       nodeModules = pkgs.stdenvNoCC.mkDerivation {
@@ -57,6 +64,16 @@ _: {
             chmod -R u+w node_modules
           fi
         )
+
+        export PRISMA_QUERY_ENGINE_LIBRARY="${prismaEngines}/lib/libquery_engine.node"
+        export PRISMA_QUERY_ENGINE_BINARY="${prismaEngines}/bin/query-engine"
+        export PRISMA_SCHEMA_ENGINE_BINARY="${prismaEngines}/bin/schema-engine"
+        # Skip Prisma's offline telemetry ping; sandboxed builds have no network.
+        export CHECKPOINT_DISABLE=1
+
+        if [ ! -d src/generated/prisma ]; then
+          node_modules/.bin/prisma generate
+        fi
       '';
     };
 }

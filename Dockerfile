@@ -31,6 +31,10 @@ WORKDIR /app
 
 RUN corepack enable && corepack prepare pnpm@10.34.5 --activate
 
+# Prisma's query/schema engines need libssl to connect to the database.
+RUN apt-get update -y && apt-get install -y --no-install-recommends openssl \
+	&& rm -rf /var/lib/apt/lists/*
+
 COPY --from=dependencies /app/node_modules ./node_modules
 COPY . .
 
@@ -41,6 +45,8 @@ ENV NODE_ENV=production
 # Uncomment the following line in case you want to disable telemetry during the build.
 # ENV NEXT_TELEMETRY_DISABLED=1
 
+RUN pnpm prisma generate
+
 RUN pnpm build
 
 # ============================================
@@ -50,6 +56,10 @@ RUN pnpm build
 FROM node:${NODE_VERSION} AS runner
 
 WORKDIR /app
+
+# Prisma's query engine needs libssl to connect to the database.
+RUN apt-get update -y && apt-get install -y --no-install-recommends openssl \
+	&& rm -rf /var/lib/apt/lists/*
 
 ENV NODE_ENV=production
 ENV PORT=3000
