@@ -8,6 +8,9 @@ node_modules/
 .next/
 out/
 
+# Prisma generated client (regenerated during the Docker build)
+src/generated/
+
 # Tests
 tests/
 *.test.*
