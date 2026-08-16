@@ -30,6 +30,10 @@ loop isn't needed here.
 
 IAP-protected; only `iap_members` identities can access (no `allUsers`).
 
+The app verifies IAP's signed JWT assertion itself (`src/lib/iap.ts`) rather
+than trusting the network path alone, and uses it as the app's own identity
+via Auth.js.
+
 No organization → no Google-managed OAuth brand, so IAP needs a custom OAuth
 client created manually in Console and applied project-wide with
 `gcloud iap settings set`. `terraform/env/dev` only manages the Secret Manager
