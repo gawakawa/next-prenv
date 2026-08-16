@@ -2,6 +2,8 @@
 
 ## Overview
 
+Per-PR preview environments for a Next.js app. The preview environment itself is not implemented yet; the repository currently holds the Next.js app.
+
 ## Docs
 
 - `README.md` — Project overview and usage
