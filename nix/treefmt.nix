@@ -6,6 +6,13 @@ _: {
           enable = true;
           includes = [ "*.nix" ];
         };
+        terraform = {
+          enable = true;
+          includes = [
+            "*.tf"
+            "*.tfvars"
+          ];
+        };
         oxfmt = {
           enable = true;
           includes = [

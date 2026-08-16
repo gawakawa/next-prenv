@@ -11,6 +11,7 @@ _: {
           enable = true;
           args = [ "--offline" ];
         };
+        tflint.enable = true;
         oxlint = {
           enable = true;
           name = "oxlint";

@@ -6,7 +6,8 @@ _: {
         config.ciPackages
         ++ config.pre-commit.settings.enabledPackages
         ++ (with pkgs; [
-          # Additional development tools can be added here
+          opentofu
+          google-cloud-sdk
         ]);
     in
     {

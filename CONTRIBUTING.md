@@ -8,3 +8,4 @@
 - `pnpm migrate` - Create and apply a database migration
 - `pnpm seed` - Seed the database
 - `docker compose up` - Run the app with a MySQL database
+- `tofu apply` (in `terraform/env/dev` or `terraform/env/preview`) - Apply infrastructure changes

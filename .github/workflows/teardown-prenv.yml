@@ -1,0 +1,107 @@
+name: 'Teardown preview environment'
+
+on:
+  pull_request:
+    types: [closed]
+  workflow_dispatch:
+  schedule:
+    - cron: '0 20 * * *' # 05:00 JST daily — sweep environments idle 3+ days
+
+permissions:
+  contents: read
+
+jobs:
+  resolve:
+    name: Resolve PR numbers to tear down
+    runs-on: ubuntu-latest
+    environment: preview
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      id-token: write
+      pull-requests: read
+    outputs:
+      prs: ${{ steps.resolve.outputs.prs }}
+    steps:
+      - name: Authenticate to Google Cloud
+        if: github.event_name == 'schedule'
+        uses: google-github-actions/auth@7c6bc770dae815cd3e89ee6cdf493a5fab2cc093 # v3
+        with:
+          workload_identity_provider: ${{ vars.WIF_PROVIDER }}
+          service_account: ${{ vars.DEPLOY_SA }}
+
+      - name: Resolve
+        id: resolve
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GCS_BUCKET: ${{ vars.GCS_BUCKET }}
+          BRANCH: ${{ github.ref_name }}
+        run: |
+          case "${{ github.event_name }}" in
+            pull_request)
+              prs="[${{ github.event.pull_request.number }}]"
+              ;;
+            workflow_dispatch)
+              pr=$(gh pr list --head "$BRANCH" --state all --json number --jq '.[0].number // empty')
+              : "${pr:?No PR found for branch ${BRANCH}}"
+              prs="[${pr}]"
+              ;;
+            schedule)
+              prs=$(gcloud storage objects list "gs://${GCS_BUCKET}/pr/*/default.tfstate" \
+                --filter="updated < -P3D" \
+                --format="value(name.segment(1))" \
+                | jq -Rcn '[inputs]')
+              ;;
+          esac
+          echo "prs=${prs}" >> "$GITHUB_OUTPUT"
+
+  destroy:
+    name: Tear down PR #${{ matrix.pr }}
+    needs: resolve
+    if: needs.resolve.outputs.prs != '[]'
+    runs-on: ubuntu-latest
+    environment: preview
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      id-token: write
+    strategy:
+      fail-fast: false
+      matrix:
+        pr: ${{ fromJson(needs.resolve.outputs.prs) }}
+    concurrency:
+      group: prenv-${{ matrix.pr }}
+      cancel-in-progress: false
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@7c6bc770dae815cd3e89ee6cdf493a5fab2cc093 # v3
+        with:
+          workload_identity_provider: ${{ vars.WIF_PROVIDER }}
+          service_account: ${{ vars.DEPLOY_SA }}
+
+      - name: Setup OpenTofu
+        uses: opentofu/setup-opentofu@a1320f892987e89d278cc92dc5adc984fb93aca4 # v2.0.2
+        with:
+          tofu_wrapper: false
+
+      - name: Terraform init
+        working-directory: terraform/env/preview
+        env:
+          GCS_BUCKET: ${{ vars.GCS_BUCKET }}
+          PR_NUMBER: ${{ matrix.pr }}
+        run: |
+          tofu init -backend-config="bucket=${GCS_BUCKET}" -backend-config="prefix=pr/${PR_NUMBER}"
+
+      - name: Terraform destroy
+        working-directory: terraform/env/preview
+        env:
+          TF_VAR_project_id: ${{ vars.GCP_PROJECT_ID }}
+          TF_VAR_region: ${{ vars.GCP_REGION }}
+          TF_VAR_pr_number: ${{ matrix.pr }}
+        run: |
+          tofu destroy -auto-approve
