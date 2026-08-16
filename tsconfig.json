@@ -13,7 +13,7 @@
 		"noEmit": true,
 		"plugins": [{ "name": "next" }],
 		"paths": {
-			"@/*": ["./*"]
+			"@/*": ["./src/*"]
 		},
 
 		// Stricter Typechecking Options
