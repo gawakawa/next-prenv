@@ -11,6 +11,11 @@ terraform {
       source  = "hashicorp/google-beta"
       version = "~> 7.15"
     }
+    # Generates AUTH_SECRET so the app doesn't ship with a hardcoded one.
+    random = {
+      source  = "hashicorp/random"
+      version = "~> 3.0"
+    }
   }
 
   # Neither bucket nor prefix is hardcoded here; both are supplied at init
