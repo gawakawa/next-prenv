@@ -1,10 +1,14 @@
+import { auth } from '../../auth';
 import { prisma } from '../../lib/prisma';
 import { createPost } from './actions';
 
 export const dynamic = 'force-dynamic';
 
 export default async function Posts() {
-	const posts = await prisma.post.findMany({ orderBy: { createdAt: 'desc' } });
+	const [session, posts] = await Promise.all([
+		auth(),
+		prisma.post.findMany({ orderBy: { createdAt: 'desc' } }),
+	]);
 
 	return (
 		<div className="flex flex-col flex-1 items-center bg-zinc-50 font-sans dark:bg-black">
@@ -12,6 +16,9 @@ export default async function Posts() {
 				<h1 className="text-3xl font-semibold tracking-tight text-black dark:text-zinc-50">
 					Posts
 				</h1>
+				<p className="text-sm text-black/60 dark:text-zinc-400">
+					Signed in as {session?.user?.email}
+				</p>
 				<form action={createPost} className="flex gap-2">
 					<input
 						type="text"

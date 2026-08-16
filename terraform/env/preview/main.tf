@@ -1,3 +1,29 @@
+# Project number is required for the IAP JWT audience below — the numeric
+# form, not var.project_id.
+data "google_project" "this" {
+  project_id = var.project_id
+}
+
+locals {
+  service_name = "next-prenv-pr-${var.pr_number}"
+
+  # The app verifies the IAP-signed JWT assertion itself (see
+  # src/lib/iap.ts), so it needs to know which audience to expect. Format is
+  # specific to Cloud Run without a load balancer in front:
+  # https://cloud.google.com/iap/docs/signed-headers-howto
+  iap_audience = "/projects/${data.google_project.this.number}/locations/${var.region}/services/${local.service_name}"
+}
+
+# Used only as the app's AUTH_SECRET (Auth.js session cookie signing).
+# Stored in tfstate in the open rather than Secret Manager: prenv-deployer
+# has no secretmanager role today, and this is a throwaway preview
+# environment behind a private state bucket. Don't reuse this pattern for
+# production secrets.
+resource "random_password" "auth_secret" {
+  length  = 32
+  special = false
+}
+
 # PR preview environment: one Cloud Run service running the app next to a
 # MySQL sidecar. Cloud Run rejects the deploy with a 400 unless exactly one
 # container declares `ports` (the ingress container) and every container
@@ -6,7 +32,7 @@ resource "google_cloud_run_v2_service" "preview" {
   # iap_enabled is a Beta-only field, so this resource uses the google-beta provider.
   provider = google-beta
 
-  name     = "next-prenv-pr-${var.pr_number}"
+  name     = local.service_name
   project  = var.project_id
   location = var.region
 
@@ -44,6 +70,18 @@ resource "google_cloud_run_v2_service" "preview" {
       env {
         name  = "DATABASE_URL"
         value = "mysql://root:password@localhost:3306/app"
+      }
+
+      # See src/lib/iap.ts: rejects any assertion not minted for this
+      # specific Cloud Run service.
+      env {
+        name  = "IAP_AUDIENCE"
+        value = local.iap_audience
+      }
+
+      env {
+        name  = "AUTH_SECRET"
+        value = random_password.auth_secret.result
       }
 
       # Migrations and seed data live only in the in-memory `db` sidecar, so

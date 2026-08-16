@@ -22,9 +22,13 @@ Per-PR preview environments for a Next.js app.
 
 ```
 .
-├── prisma/                 Database schema and migrations
-├── src/app/                Next.js App Router
-├── terraform/env/dev/      Persistent config
-├── terraform/env/preview/  Temporary per-PR config
-└── .github/workflows/      Deploy and teardown automation
+├── .github
+│   └── workflows       Deploy and teardown automation
+├── prisma              Database schema and migrations
+├── src
+│   └── app             Next.js App Router
+└── terraform
+    └── env
+        ├── dev         Persistent config
+        └── preview     Temporary per-PR config
 ```

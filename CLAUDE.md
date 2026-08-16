@@ -2,7 +2,7 @@
 
 ## Overview
 
-Per-PR preview environments for a full-stack Next.js app — RSC and Server Actions backed by a database. The preview environment itself is not implemented yet; the repository currently holds the Next.js app and its database layer.
+Per-PR preview environments for a full-stack Next.js app — RSC and Server Actions backed by a database.
 
 ## Docs
 
