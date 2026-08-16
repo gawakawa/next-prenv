@@ -1,0 +1,136 @@
+name: 'Deploy preview environment'
+
+on:
+  pull_request:
+    types: [labeled]
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build image
+    if: github.event.label.name == 'preview'
+    runs-on: ubuntu-latest
+    environment: preview
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      id-token: write
+    outputs:
+      ref: ${{ steps.ref.outputs.ref }}
+    env:
+      AR_REPO: ${{ vars.AR_REPO }}
+      GCP_REGION: ${{ vars.GCP_REGION }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          persist-credentials: false
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@7c6bc770dae815cd3e89ee6cdf493a5fab2cc093 # v3
+        with:
+          workload_identity_provider: ${{ vars.WIF_PROVIDER }}
+          service_account: ${{ vars.DEPLOY_SA }}
+
+      - name: Resolve image reference
+        id: ref
+        run: |
+          tag=$(git rev-parse 'HEAD^{tree}' | cut -c1-16)
+          echo "ref=${AR_REPO}/app:${tag}" >> "$GITHUB_OUTPUT"
+
+      - name: Check if image already exists
+        id: check
+        env:
+          REF: ${{ steps.ref.outputs.ref }}
+        run: |
+          if gcloud artifacts docker images describe "$REF" --quiet >/dev/null 2>&1; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Configure Docker for Artifact Registry
+        if: steps.check.outputs.exists != 'true'
+        run: gcloud auth configure-docker "${GCP_REGION}-docker.pkg.dev" --quiet
+
+      - name: Setup Docker Buildx
+        if: steps.check.outputs.exists != 'true'
+        uses: docker/setup-buildx-action@bb05f3f5519dd87d3ba754cc423b652a5edd6d2c # v4.2.0
+
+      - name: Build and push
+        if: steps.check.outputs.exists != 'true'
+        uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7.3.0
+        with:
+          context: .
+          target: builder
+          push: true
+          tags: ${{ steps.ref.outputs.ref }}
+          cache-from: type=registry,ref=${{ env.AR_REPO }}/app:buildcache
+          cache-to: type=registry,ref=${{ env.AR_REPO }}/app:buildcache,mode=max
+
+  deploy:
+    name: Deploy
+    needs: build
+    runs-on: ubuntu-latest
+    environment: preview
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      id-token: write
+      pull-requests: write
+    concurrency:
+      group: prenv-${{ github.event.pull_request.number }}
+      cancel-in-progress: false
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          persist-credentials: false
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@7c6bc770dae815cd3e89ee6cdf493a5fab2cc093 # v3
+        with:
+          workload_identity_provider: ${{ vars.WIF_PROVIDER }}
+          service_account: ${{ vars.DEPLOY_SA }}
+
+      - name: Setup OpenTofu
+        uses: opentofu/setup-opentofu@a1320f892987e89d278cc92dc5adc984fb93aca4 # v2.0.2
+        with:
+          tofu_wrapper: false
+
+      - name: Terraform init
+        working-directory: terraform/env/preview
+        env:
+          GCS_BUCKET: ${{ vars.GCS_BUCKET }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          tofu init -backend-config="bucket=${GCS_BUCKET}" -backend-config="prefix=pr/${PR_NUMBER}"
+
+      - name: Terraform apply
+        working-directory: terraform/env/preview
+        env:
+          TF_VAR_project_id: ${{ vars.GCP_PROJECT_ID }}
+          TF_VAR_region: ${{ vars.GCP_REGION }}
+          TF_VAR_pr_number: ${{ github.event.pull_request.number }}
+          TF_VAR_app_image: ${{ needs.build.outputs.ref }}
+        run: |
+          tofu apply -auto-approve
+
+      - name: Get preview URL
+        id: url
+        working-directory: terraform/env/preview
+        run: echo "url=$(tofu output -raw url)" >> "$GITHUB_OUTPUT"
+
+      - name: Comment preview URL on PR
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          PREVIEW_URL: ${{ steps.url.outputs.url }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          body=$(printf "## 🚀 Preview environment\n\n**URL:** %s\n\nDeployed from commit \`%s\`\n\n> Close the PR to tear down (stale environments are also GC'd daily).\n" "$PREVIEW_URL" "$HEAD_SHA")
+          gh pr comment "$PR_NUMBER" --edit-last --create-if-none --body "$body"
