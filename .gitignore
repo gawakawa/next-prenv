@@ -148,3 +148,8 @@ vite.config.ts.timestamp-*
 result
 .mcp.json
 .pre-commit-config.yaml
+
+# Terraform
+.terraform/
+*.tfstate
+*.tfstate.*
